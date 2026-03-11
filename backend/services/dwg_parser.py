@@ -70,12 +70,38 @@ def _calculate_scale(bbox: BoundingBox, raw_units: str) -> float:
         return 0.3048  # feet → m
 
 
+def _safe_error_msg(e: Exception, filename: str) -> str:
+    """Return a printable error message, stripping any binary content."""
+    try:
+        raw = str(e)
+        # If the message contains non-printable bytes it's binary garbage — discard it
+        printable = "".join(c for c in raw if c.isprintable() or c in " \t\n")
+        if len(printable) > 20:
+            return printable[:300]
+    except Exception:
+        pass
+    return (
+        f"Cannot read '{filename}'. The file may be corrupted or use an unsupported format. "
+        f"Please save as DXF R2010 from AutoCAD and upload the .dxf file."
+    )
+
+
 def parse_dwg_file(file_content: bytes, filename: str) -> FloorPlanData:
     """
     Main entry point: parse DWG or DXF file bytes into FloorPlanData.
     For DWG files, ezdxf can handle R2004 and newer. Older DWG files
     should be converted to DXF first.
     """
+    try:
+        return _parse_dwg_file(file_content, filename)
+    except ValueError:
+        raise  # already a friendly message — pass through
+    except Exception as e:
+        raise ValueError(_safe_error_msg(e, filename))
+
+
+def _parse_dwg_file(file_content: bytes, filename: str) -> FloorPlanData:
+    """Internal parser — called by parse_dwg_file which handles all exceptions."""
     warnings = []
     suffix = Path(filename).suffix.lower()
 
