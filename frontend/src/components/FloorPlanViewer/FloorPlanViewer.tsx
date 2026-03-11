@@ -103,7 +103,7 @@ export function FloorPlanViewer() {
         </ToolbarGroup>
         <ToolbarGroup>
           <button onClick={() => setZoom((z) => Math.min(z * 1.3, 5))} className="toolbar-btn text-xl leading-none">+</button>
-          <button onClick={() => setZoom(1); setPan({ x: 0, y: 0 })} className="toolbar-btn text-xs">Reset</button>
+          <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} className="toolbar-btn text-xs">Reset</button>
           <button onClick={() => setZoom((z) => Math.max(z * 0.77, 0.3))} className="toolbar-btn text-xl leading-none">−</button>
         </ToolbarGroup>
       </div>
