@@ -239,8 +239,6 @@ async def generate_layout_stream(
     async with client.messages.stream(
         model="claude-opus-4-6",
         max_tokens=8192,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
@@ -266,8 +264,6 @@ async def generate_layout(
     async with client.messages.stream(
         model="claude-opus-4-6",
         max_tokens=8192,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
