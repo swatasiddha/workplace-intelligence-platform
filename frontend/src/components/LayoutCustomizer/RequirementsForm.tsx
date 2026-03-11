@@ -62,10 +62,15 @@ export function RequirementsForm() {
         setStep("review");
       }, 500);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Generation failed";
+      let msg = "Generation failed";
+      if (err && typeof err === "object") {
+        const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
+        msg = axiosErr.response?.data?.detail ?? axiosErr.message ?? msg;
+      }
       setError(msg);
       setIsGenerating(false);
       setStep("requirements");
+      alert(`Layout generation failed:\n\n${msg}`);
     } finally {
       clearInterval(timer);
     }
