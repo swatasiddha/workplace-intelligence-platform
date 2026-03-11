@@ -31,7 +31,11 @@ export function FileUpload() {
       setMessage(`Parsed successfully — ${result.floor_plan.total_area.toLocaleString()} m² floor plate detected`);
       setTimeout(() => setStep("requirements"), 1000);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
+      let msg = "Upload failed";
+      if (err && typeof err === "object") {
+        const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
+        msg = axiosErr.response?.data?.detail ?? axiosErr.message ?? msg;
+      }
       setStatus("error");
       setMessage(msg);
       setError(msg);
