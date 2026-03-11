@@ -106,7 +106,17 @@ def _parse_dwg_file(file_content: bytes, filename: str) -> FloorPlanData:
     suffix = Path(filename).suffix.lower()
 
     try:
-        doc = ezdxf.read(io.BytesIO(file_content))
+        if suffix == ".dxf":
+            # DXF is a text format — ezdxf.read() requires a text stream
+            try:
+                text = file_content.decode("utf-8")
+            except UnicodeDecodeError:
+                text = file_content.decode("latin-1")
+            stream = io.StringIO(text)
+        else:
+            # DWG is binary
+            stream = io.BytesIO(file_content)
+        doc = ezdxf.read(stream)
     except ezdxf.DXFStructureError:
         raise ValueError(
             f"Cannot parse '{filename}'. This file format is not supported. "
