@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
+
+@layer components {
+  .input {
+    @apply w-full px-3 py-2 border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-shadow;
+  }
+  .toolbar-btn {
+    @apply px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme("colors.slate.300") transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: theme("colors.slate.300");
+    border-radius: 3px;
+  }
+}
+
+/* Animated gradient for AI generating state */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #f0f4ff 25%, #dbeafe 50%, #f0f4ff 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* SVG floor plan viewer */
+.fp-viewer svg { display: block; }
+.fp-wall { stroke: #1e293b; stroke-width: 2; fill: #334155; }
+.fp-room { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1; }
+.fp-core { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; }
+.fp-space { cursor: pointer; transition: opacity 0.15s; }
+.fp-space:hover { opacity: 0.85; }
+.fp-space.selected { stroke: #2563EB; stroke-width: 2; filter: drop-shadow(0 0 4px #2563EB80); }
+.fp-furniture { fill: #94a3b8; opacity: 0.7; }
+.fp-label { font-size: 10px; fill: #374151; font-family: Inter, sans-serif; text-anchor: middle; pointer-events: none; }
