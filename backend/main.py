@@ -3,9 +3,11 @@ Workplace Intelligence Platform — FastAPI Backend
 AI-powered office interior design from DWG/DXF floor plans
 """
 
+import asyncio
 import json
 import uuid
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
@@ -69,7 +71,21 @@ async def upload_floor_plan(file: UploadFile = File(...)):
         raise HTTPException(400, "File is empty.")
 
     try:
-        fp = parse_dwg_file(content, file.filename or "floor_plan.dxf")
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = loop.run_in_executor(
+                pool,
+                parse_dwg_file,
+                content,
+                file.filename or "floor_plan.dxf",
+            )
+            fp = await asyncio.wait_for(future, timeout=120.0)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            408,
+            "File parsing timed out after 2 minutes. The file may be too complex. "
+            "Try saving as DXF R2010 from AutoCAD with only architectural layers."
+        )
     except ValueError as e:
         raise HTTPException(422, str(e))
     except Exception as e:

@@ -94,7 +94,16 @@ def parse_dwg_file(file_content: bytes, filename: str) -> FloorPlanData:
     all_lines: list[tuple] = []        # (start, end, layer)
     all_polylines: list[list] = []     # [(pts, is_closed, layer)]
 
+    MAX_ENTITIES = 50_000
+    entity_count = 0
     for entity in msp:
+        if entity_count >= MAX_ENTITIES:
+            warnings.append(
+                f"File has more than {MAX_ENTITIES} entities; only the first "
+                f"{MAX_ENTITIES} were processed for performance."
+            )
+            break
+        entity_count += 1
         try:
             layer = entity.dxf.layer if hasattr(entity.dxf, "layer") else "0"
             etype = entity.dxftype()
@@ -115,7 +124,7 @@ def parse_dwg_file(file_content: bytes, filename: str) -> FloorPlanData:
 
             elif etype == "SPLINE":
                 try:
-                    pts = [(p[0], p[1]) for p in entity.flattening(0.01)]
+                    pts = [(p[0], p[1]) for p in entity.flattening(1.0)]
                     if len(pts) >= 2:
                         all_polylines.append((pts, False, layer))
                 except Exception:
@@ -287,12 +296,23 @@ def _detect_rooms_and_cores(
             vertices = _points_to_model(list(poly.exterior.coords)[:-1])
             cx = Point(x=centroid.x, y=centroid.y)
 
-            # Aspect ratio
-            mbr = poly.minimum_rotated_rectangle
-            mbr_coords = list(mbr.exterior.coords)
-            w = math.hypot(mbr_coords[1][0] - mbr_coords[0][0], mbr_coords[1][1] - mbr_coords[0][1])
-            h = math.hypot(mbr_coords[2][0] - mbr_coords[1][0], mbr_coords[2][1] - mbr_coords[1][1])
-            aspect = max(w, h) / max(min(w, h), 0.01)
+            # Aspect ratio — skip expensive MBR for complex polygons
+            if len(pts) <= 20:
+                try:
+                    mbr = poly.minimum_rotated_rectangle
+                    mbr_coords = list(mbr.exterior.coords)
+                    w = math.hypot(mbr_coords[1][0] - mbr_coords[0][0], mbr_coords[1][1] - mbr_coords[0][1])
+                    h = math.hypot(mbr_coords[2][0] - mbr_coords[1][0], mbr_coords[2][1] - mbr_coords[1][1])
+                    aspect = max(w, h) / max(min(w, h), 0.01)
+                except Exception:
+                    aspect = 1.0
+            else:
+                # Approximate via bounding box
+                env = poly.envelope
+                env_coords = list(env.exterior.coords)
+                w = abs(env_coords[2][0] - env_coords[0][0])
+                h = abs(env_coords[2][1] - env_coords[0][1])
+                aspect = max(w, h) / max(min(w, h), 0.01)
 
             is_core = _layer_matches(layer, CORE_LAYERS)
             is_large = area_sqm > gross_area / (scale * scale) * 0.3
