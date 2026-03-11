@@ -44,10 +44,10 @@ class ClientRequirements(BaseModel):
     density: WorkstationDensity = WorkstationDensity.STANDARD
 
     # Room allocations (% of usable area)
-    meeting_room_percent: float = Field(default=15.0, ge=5.0, le=35.0)
-    collaboration_percent: float = Field(default=10.0, ge=0.0, le=30.0)
-    focus_percent: float = Field(default=5.0, ge=0.0, le=20.0)
-    amenity_percent: float = Field(default=8.0, ge=3.0, le=20.0)  # pantry, lounge, etc.
+    meeting_room_percent: float = Field(default=15.0, ge=0.0, le=50.0)
+    collaboration_percent: float = Field(default=10.0, ge=0.0, le=50.0)
+    focus_percent: float = Field(default=5.0, ge=0.0, le=50.0)
+    amenity_percent: float = Field(default=8.0, ge=0.0, le=50.0)  # pantry, lounge, etc.
 
     # Room counts (0 = auto-calculate)
     small_meeting_rooms: int = 0
