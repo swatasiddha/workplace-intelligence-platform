@@ -81,11 +81,17 @@ def parse_dwg_file(file_content: bytes, filename: str) -> FloorPlanData:
 
     try:
         doc = ezdxf.read(io.BytesIO(file_content))
-    except ezdxf.DXFStructureError as e:
-        raise ValueError(f"Cannot parse file '{filename}': {e}. "
-                         f"If this is a DWG file, please save as DXF R2010 from AutoCAD.")
-    except Exception as e:
-        raise ValueError(f"File read error: {e}")
+    except ezdxf.DXFStructureError:
+        raise ValueError(
+            f"Cannot parse '{filename}'. This file format is not supported. "
+            f"Please open it in AutoCAD, then Save As → DXF R2010 format, "
+            f"and upload the .dxf file instead."
+        )
+    except Exception:
+        raise ValueError(
+            f"Cannot read '{filename}'. The file may be corrupted or in an unsupported DWG version. "
+            f"Please save as DXF R2010 from AutoCAD and upload the .dxf file."
+        )
 
     msp = doc.modelspace()
     layers = [layer.dxf.name for layer in doc.layers]
