@@ -263,7 +263,7 @@ async def generate_layout(
     full_text = ""
     async with client.messages.stream(
         model="claude-opus-4-6",
-        max_tokens=8192,
+        max_tokens=32000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
@@ -272,6 +272,11 @@ async def generate_layout(
 
     # Parse JSON response
     layout_data = _parse_layout_json(full_text)
+
+    # Convert normalised 0-100 coordinates to actual floor plan bbox coordinates.
+    # Claude is instructed to use a 0-100 percentage coordinate system; the viewer
+    # renders in real floor plan units (millimetres for uploaded DXF/DWG files).
+    layout_data = _denormalize_layout_coords(layout_data, fp)
 
     # Assign default colours if missing
     for space in layout_data.get("spaces", []):
@@ -356,6 +361,37 @@ def _fallback_layout() -> dict:
         "design_principles": ["Open plan layout"],
         "warnings": ["AI layout generation failed — showing fallback layout."],
     }
+
+
+def _denormalize_layout_coords(layout_data: dict, fp: FloorPlanData) -> dict:
+    """
+    Convert normalised 0-100 vertex/furniture coordinates to real floor plan units.
+
+    Claude is prompted to use a percentage coordinate system (0 = left/bottom wall,
+    100 = right/top wall).  The SVG viewer uses the actual bounding box of the floor
+    plan file (e.g. 0–50 000 mm for a 50 m wide floor).  Without this conversion
+    every space collapses to a near-invisible sliver at the origin.
+    """
+    bbox = fp.bounding_box
+    bw = bbox.max_x - bbox.min_x or 1.0   # floor width in native units (mm)
+    bh = bbox.max_y - bbox.min_y or 1.0   # floor depth in native units (mm)
+
+    for space in layout_data.get("spaces", []):
+        for v in space.get("vertices", []):
+            v["x"] = bbox.min_x + (v["x"] / 100.0) * bw
+            v["y"] = bbox.min_y + (v["y"] / 100.0) * bh
+
+    for f in layout_data.get("furniture", []):
+        f["x"] = bbox.min_x + (f["x"] / 100.0) * bw
+        f["y"] = bbox.min_y + (f["y"] / 100.0) * bh
+        # Claude returns width/height in metres; the viewer scales by bw/VIEWBOX_SIZE,
+        # so we need them in the same native units as the bbox (mm = metres × 1000).
+        if f.get("width", 0) < 200:   # heuristic: <200 → metres, else already mm
+            f["width"] = f["width"] * 1000
+        if f.get("height", 0) < 200:
+            f["height"] = f["height"] * 1000
+
+    return layout_data
 
 
 def _compute_statistics(
