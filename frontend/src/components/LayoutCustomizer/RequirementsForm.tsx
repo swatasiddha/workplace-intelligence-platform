@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Users, Briefcase, Building2, LayoutGrid, Settings2,
-  ChevronRight, Sparkles, Info
+  ChevronRight, Sparkles, Info, AlertCircle
 } from "lucide-react";
 import clsx from "clsx";
 import { useLayoutStore } from "../../store/layoutStore";
@@ -34,12 +34,14 @@ export function RequirementsForm() {
     setLayout, setLayoutId, setStep, setIsGenerating,
     setGeneratingProgress, setError, setFloorPlan,
   } = useLayoutStore();
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     setStep("generating");
     setGeneratingProgress(0);
     setError(null);
+    setGenerateError(null);
 
     // Simulate progress while AI generates
     const timer = setInterval(() => {
@@ -68,9 +70,9 @@ export function RequirementsForm() {
         msg = axiosErr.response?.data?.detail ?? axiosErr.message ?? msg;
       }
       setError(msg);
+      setGenerateError(msg);
       setIsGenerating(false);
       setStep("requirements");
-      alert(`Layout generation failed:\n\n${msg}`);
     } finally {
       clearInterval(timer);
     }
@@ -309,6 +311,17 @@ export function RequirementsForm() {
               className="input resize-none"
             />
           </Section>
+
+          {/* Generation error */}
+          {generateError && (
+            <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold mb-0.5">Layout generation failed</p>
+                <p className="text-red-600">{generateError}</p>
+              </div>
+            </div>
+          )}
 
           {/* Generate button */}
           <motion.button

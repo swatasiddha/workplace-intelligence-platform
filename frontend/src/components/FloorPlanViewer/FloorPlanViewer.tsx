@@ -241,25 +241,34 @@ export function FloorPlanViewer() {
           })}
 
           {/* Furniture */}
-          {showFurniture && layout?.furniture.map((f) => {
-            const [vx, vy] = toViewport({ x: f.x, y: f.y }, bbox);
-            const scale2 = Math.min(VIEWBOX_SIZE / ((bbox.max_x - bbox.min_x) || 1), VIEWBOX_SIZE / ((bbox.max_y - bbox.min_y) || 1));
-            const fw = f.width * scale2;
-            const fh = f.height * scale2;
-            return (
-              <rect
-                key={f.id}
-                x={vx - fw / 2} y={vy - fh / 2}
-                width={fw} height={fh}
-                fill="#94a3b8"
-                fillOpacity={0.6}
-                stroke="#64748b"
-                strokeWidth="0.5"
-                rx={1}
-                transform={f.rotation ? `rotate(${f.rotation}, ${vx}, ${vy})` : undefined}
-              />
+          {showFurniture && (() => {
+            // Compute the same scale that toViewport() uses so furniture
+            // sizes align exactly with the floor plan coordinate system.
+            const bw = bbox.max_x - bbox.min_x || 1;
+            const bh = bbox.max_y - bbox.min_y || 1;
+            const furnitureScale = Math.min(
+              (VIEWBOX_SIZE - 2 * PADDING) / bw,
+              (VIEWBOX_SIZE - 2 * PADDING) / bh,
             );
-          })}
+            return layout?.furniture.map((f) => {
+              const [vx, vy] = toViewport({ x: f.x, y: f.y }, bbox);
+              const fw = f.width * furnitureScale;
+              const fh = f.height * furnitureScale;
+              return (
+                <rect
+                  key={f.id}
+                  x={vx - fw / 2} y={vy - fh / 2}
+                  width={fw} height={fh}
+                  fill="#94a3b8"
+                  fillOpacity={0.6}
+                  stroke="#64748b"
+                  strokeWidth="0.5"
+                  rx={1}
+                  transform={f.rotation ? `rotate(${f.rotation}, ${vx}, ${vy})` : undefined}
+                />
+              );
+            });
+          })()}
         </svg>
       </div>
 

@@ -284,10 +284,32 @@ async def generate_layout(
             st = SpaceType(space["space_type"]) if space.get("space_type") in [t.value for t in SpaceType] else SpaceType.WORKSTATION
             space["color"] = SPACE_COLOURS.get(st, "#E5E7EB")
 
-    # Build model objects
-    spaces = [SpaceAllocation(**s) for s in layout_data.get("spaces", [])]
-    zones = [LayoutZone(**z) for z in layout_data.get("zones", [])]
-    furniture = [FurnitureItem(**f) for f in layout_data.get("furniture", [])]
+    # Build model objects — skip any item Claude returned with invalid/missing fields
+    valid_space_types = {t.value for t in SpaceType}
+    spaces: list[SpaceAllocation] = []
+    for s in layout_data.get("spaces", []):
+        if s.get("space_type") not in valid_space_types:
+            s["space_type"] = SpaceType.WORKSTATION.value
+        try:
+            spaces.append(SpaceAllocation(**s))
+        except Exception as exc:
+            logger.warning("Skipping invalid space from AI response: %s", exc)
+
+    zones: list[LayoutZone] = []
+    for z in layout_data.get("zones", []):
+        try:
+            zones.append(LayoutZone(**z))
+        except Exception as exc:
+            logger.warning("Skipping invalid zone from AI response: %s", exc)
+
+    furniture: list[FurnitureItem] = []
+    for f in layout_data.get("furniture", []):
+        if f.get("space_type") not in valid_space_types:
+            f["space_type"] = SpaceType.WORKSTATION.value
+        try:
+            furniture.append(FurnitureItem(**f))
+        except Exception as exc:
+            logger.warning("Skipping invalid furniture item from AI response: %s", exc)
 
     # Compute statistics
     stats = _compute_statistics(spaces, requirements, fp)
@@ -352,7 +374,7 @@ def _fallback_layout() -> dict:
             },
         ],
         "zones": [
-            {"id": "z-1", "name": "Work Zone", "color": "#DBEAFE", "area": 0, "headcount": 30},
+            {"id": "z-1", "name": "Work Zone", "color": "#DBEAFE", "area": 0, "headcount": 0},
         ],
         "furniture": [],
         "ai_rationale": "Layout generated with default configuration. "
@@ -361,6 +383,19 @@ def _fallback_layout() -> dict:
         "design_principles": ["Open plan layout"],
         "warnings": ["AI layout generation failed — showing fallback layout."],
     }
+
+
+def _polygon_area(vertices: list[dict]) -> float:
+    """Shoelace formula — returns area in whatever units vertices are in."""
+    n = len(vertices)
+    if n < 3:
+        return 0.0
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += vertices[i]["x"] * vertices[j]["y"]
+        area -= vertices[j]["x"] * vertices[i]["y"]
+    return abs(area) / 2.0
 
 
 def _denormalize_layout_coords(layout_data: dict, fp: FloorPlanData) -> dict:
@@ -375,21 +410,29 @@ def _denormalize_layout_coords(layout_data: dict, fp: FloorPlanData) -> dict:
     bbox = fp.bounding_box
     bw = bbox.max_x - bbox.min_x or 1.0   # floor width in native units (mm)
     bh = bbox.max_y - bbox.min_y or 1.0   # floor depth in native units (mm)
+    scale = fp.scale_factor or 1.0        # native units per metre (e.g. 1000 for mm)
 
     for space in layout_data.get("spaces", []):
         for v in space.get("vertices", []):
             v["x"] = bbox.min_x + (v["x"] / 100.0) * bw
             v["y"] = bbox.min_y + (v["y"] / 100.0) * bh
+        # Recompute area in m² from the now-denormalized vertices
+        raw_area = _polygon_area(space.get("vertices", []))
+        space["area"] = round(raw_area / (scale * scale), 1)
 
     for f in layout_data.get("furniture", []):
         f["x"] = bbox.min_x + (f["x"] / 100.0) * bw
         f["y"] = bbox.min_y + (f["y"] / 100.0) * bh
-        # Claude returns width/height in metres; the viewer scales by bw/VIEWBOX_SIZE,
-        # so we need them in the same native units as the bbox (mm = metres × 1000).
-        if f.get("width", 0) < 200:   # heuristic: <200 → metres, else already mm
-            f["width"] = f["width"] * 1000
-        if f.get("height", 0) < 200:
-            f["height"] = f["height"] * 1000
+        # Claude returns width/height in metres; convert to native bbox units (mm).
+        # Use scale to make the conversion deterministic instead of a raw heuristic.
+        w = f.get("width", 0)
+        h = f.get("height", 0)
+        # If values look like metres (≤ max floor dimension in m), convert to mm.
+        max_floor_m = max(bw, bh) / scale
+        if w > 0 and w <= max_floor_m:
+            f["width"] = w * scale
+        if h > 0 and h <= max_floor_m:
+            f["height"] = h * scale
 
     return layout_data
 
